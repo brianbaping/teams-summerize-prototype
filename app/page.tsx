@@ -5,9 +5,13 @@ import ChannelSelector from '@/components/ChannelSelector';
 import MessageViewer from '@/components/MessageViewer';
 import SummarizePanel from '@/components/SummarizePanel';
 import OllamaPlayground from '@/components/OllamaPlayground';
+import ClaudePlayground from '@/components/ClaudePlayground';
+import ProviderToggle from '@/components/ProviderToggle';
+import { useProvider } from '@/contexts/ProviderContext';
 
 export default function Home() {
   const { data: session, status } = useSession();
+  const { provider } = useProvider();
   const isMockMode = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true';
 
   if (status === 'loading') {
@@ -73,13 +77,16 @@ export default function Home() {
 
         <div className="space-y-6">
           <div className="bg-white shadow-md rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">Dashboard</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">Dashboard</h2>
+              <ProviderToggle />
+            </div>
             <p className="text-gray-600">
               Welcome, {session.user?.name || session.user?.email}!
             </p>
           </div>
 
-          <OllamaPlayground />
+          {provider === 'claude' ? <ClaudePlayground /> : <OllamaPlayground />}
           <ChannelSelector />
           <MessageViewer />
           <SummarizePanel />

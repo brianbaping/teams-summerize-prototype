@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useProvider } from '@/contexts/ProviderContext';
 
 interface MonitoredChannel {
   id: number;
@@ -25,6 +26,7 @@ interface SummaryResult {
 }
 
 export default function SummarizePanel() {
+  const { provider } = useProvider();
   const [channels, setChannels] = useState<MonitoredChannel[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(() => {
@@ -78,6 +80,7 @@ export default function SummarizePanel() {
         body: JSON.stringify({
           channelId: selectedChannel,
           date: selectedDate,
+          provider, // Pass selected provider
         }),
       });
 

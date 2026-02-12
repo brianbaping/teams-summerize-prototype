@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { getDatabase, getMessagesByDateRange, saveSummary } from '@/lib/db';
-import { generateSummary, parseSummaryResponse } from '@/lib/ollama';
 import { summaryRequestSchema } from '@/lib/validation';
 import { GraphAPIClient } from '@/lib/microsoft-graph';
 import type { Message } from '@/lib/microsoft-graph';
 
 /**
  * POST /api/summarize - Generate AI summary for a date
- * Body: { channelId, date }
+ * Body: { channelId, date, provider? }
  */
 export async function POST(request: Request) {
   try {
@@ -17,6 +16,9 @@ export async function POST(request: Request) {
 
     const validated = summaryRequestSchema.parse(body);
     const db = getDatabase();
+
+    // Get provider from request or use environment default
+    const provider = body.provider || process.env.AI_PROVIDER || 'ollama';
 
     // Get messages for the date
     const date = new Date(validated.date);
@@ -43,9 +45,20 @@ export async function POST(request: Request) {
       createdDateTime: typeof msg.createdAt === 'string' ? msg.createdAt : msg.createdAt.toISOString(),
     }));
 
-    // Generate summary
-    const summaryText = await generateSummary(graphMessages, validated.date);
-    const parsed = parseSummaryResponse(summaryText);
+    // Generate summary using selected LLM provider
+    const { getLLMProvider } = require('@/lib/llm-provider');
+
+    // Temporarily override environment variable for this request
+    const originalProvider = process.env.AI_PROVIDER;
+    process.env.AI_PROVIDER = provider;
+
+    const llmProvider = getLLMProvider();
+    console.log(`[Summarize] Using LLM provider: ${llmProvider.getName()} (${provider})`);
+    const summaryText = await llmProvider.generateSummary(graphMessages, validated.date);
+    const parsed = llmProvider.parseSummaryResponse(summaryText);
+
+    // Restore original environment variable
+    process.env.AI_PROVIDER = originalProvider;
 
     // Save to database
     const summaryId = saveSummary(db, {

@@ -1,17 +1,15 @@
 /**
- * Ollama client for local LLM summarization
+ * Claude API client for AI summarization
  * Handles prompt generation, API calls, and response parsing
  */
 
-import { OllamaError } from './errors';
+import Anthropic from '@anthropic-ai/sdk';
+import { ClaudeAPIError } from './errors';
 import { Message } from './microsoft-graph';
 import type { LLMProvider, SummaryOutput } from './llm-provider';
 
-// Re-export SummaryOutput for backward compatibility
-export type { SummaryOutput };
-
 /**
- * Generate a summary from Teams messages using Ollama
+ * Generate a summary from Teams messages using Claude API
  * @param messages - Array of Teams messages
  * @param date - Date string for the summary period
  * @returns Generated summary text
@@ -21,53 +19,62 @@ export async function generateSummary(
   date: string
 ): Promise<string> {
   if (!messages || messages.length === 0) {
-    throw new OllamaError('Cannot generate summary from empty message list');
+    throw new ClaudeAPIError('Cannot generate summary from empty message list');
+  }
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    throw new ClaudeAPIError('ANTHROPIC_API_KEY environment variable is not set');
   }
 
   const prompt = buildPrompt(messages, date);
-  const baseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-  const model = process.env.OLLAMA_MODEL || 'llama3';
+  const model = process.env.CLAUDE_MODEL || 'claude-sonnet-4-20250514';
 
-  // Retry logic for timeouts and connection errors
-  const maxAttempts = 2;
+  // Initialize Anthropic client
+  const client = new Anthropic({
+    apiKey,
+  });
+
+  // Retry logic for rate limits and server errors
+  const maxAttempts = 3;
   let lastError: any;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      console.log(`[Ollama] Calling API at ${baseUrl} with model ${model}`);
-      console.log(`[Ollama] Prompt length: ${prompt.length} characters`);
+      console.log(`[Claude] Calling API with model ${model} (attempt ${attempt + 1}/${maxAttempts})`);
+      console.log(`[Claude] Prompt length: ${prompt.length} characters`);
 
-      const response = await fetch(`${baseUrl}/api/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          prompt,
-          stream: false,
-        }),
-        signal: AbortSignal.timeout(60000), // 60s timeout
+      const response = await client.messages.create({
+        model,
+        max_tokens: 4096,
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
       });
 
-      if (!response.ok) {
-        throw new OllamaError(
-          `Ollama API returned ${response.status}: ${response.statusText}`
-        );
-      }
+      // Extract text from response
+      const text = response.content
+        .filter((block) => block.type === 'text')
+        .map((block) => (block as any).text)
+        .join('\n');
 
-      const result = await response.json();
-      console.log(`[Ollama] Response received: ${result.response.substring(0, 200)}...`);
-      console.log(`[Ollama] Generation stats: ${result.eval_count} tokens in ${(result.total_duration / 1000000000).toFixed(2)}s`);
+      console.log(`[Claude] Response received: ${text.substring(0, 200)}...`);
+      console.log(`[Claude] Token usage: ${response.usage.input_tokens} in, ${response.usage.output_tokens} out`);
 
-      return result.response;
+      return text;
     } catch (error: any) {
       lastError = error;
 
-      // Check if error is retriable (timeout or connection error)
+      // Check if error is retriable
+      const statusCode = error.status || error.statusCode;
       const isRetriable =
-        error.name === 'AbortError' ||
-        error.message?.includes('ECONNREFUSED') ||
+        statusCode === 429 || // Rate limit
+        statusCode === 529 || // Overloaded
+        statusCode === 500 || // Server error
+        statusCode === 503 || // Service unavailable
         error.message?.toLowerCase().includes('timeout') ||
         error.message?.toLowerCase().includes('connection');
 
@@ -75,19 +82,22 @@ export async function generateSummary(
         break;
       }
 
-      // Wait 1 second before retry
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Exponential backoff: 1s, 2s, 4s
+      const delay = Math.pow(2, attempt) * 1000;
+      console.log(`[Claude] Retriable error, waiting ${delay}ms before retry...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 
-  throw new OllamaError(
+  throw new ClaudeAPIError(
     'Failed to generate summary after retries',
-    lastError
+    { originalError: lastError }
   );
 }
 
 /**
  * Build the prompt for summarization
+ * Uses the same format as Ollama for consistency
  */
 function buildPrompt(messages: Message[], date: string): string {
   const formattedMessages = messages
@@ -125,11 +135,11 @@ Resources: (links mentioned, otherwise "None")`;
 
 /**
  * Parse the LLM response into structured sections
- * Extracts overview, decisions, action items, blockers, and resources
+ * Reuses the same parsing logic as Ollama for consistency
  */
 export function parseSummaryResponse(response: string): SummaryOutput {
-  console.log('[Ollama Parser] Raw response length:', response.length);
-  console.log('[Ollama Parser] First 200 chars:', response.substring(0, 200));
+  console.log('[Claude Parser] Raw response length:', response.length);
+  console.log('[Claude Parser] First 200 chars:', response.substring(0, 200));
 
   const sections: SummaryOutput = {
     overview: '',
@@ -139,8 +149,7 @@ export function parseSummaryResponse(response: string): SummaryOutput {
     resources: '',
   };
 
-  // Extract each section using regex (using [\s\S] instead of . with s flag for compatibility)
-  // Try with case-insensitive matching and more flexible patterns
+  // Extract each section using regex (case-insensitive, flexible patterns)
   const overviewMatch = response.match(/Overview:?\s*([\s\S]*?)(?=\n\s*Key Decisions:?|\n\s*Action Items:?|\n\s*Blockers:?|\n\s*Resources:?|$)/i);
   const decisionsMatch = response.match(/Key Decisions:?\s*([\s\S]*?)(?=\n\s*Action Items:?|\n\s*Blockers:?|\n\s*Resources:?|$)/i);
   const actionItemsMatch = response.match(/Action Items:?\s*([\s\S]*?)(?=\n\s*Blockers:?|\n\s*Resources:?|$)/i);
@@ -153,7 +162,7 @@ export function parseSummaryResponse(response: string): SummaryOutput {
   if (blockersMatch) sections.blockers = blockersMatch[1].trim();
   if (resourcesMatch) sections.resources = resourcesMatch[1].trim();
 
-  console.log('[Ollama Parser] Parsed sections:', {
+  console.log('[Claude Parser] Parsed sections:', {
     overview: sections.overview ? sections.overview.substring(0, 50) + '...' : 'EMPTY',
     decisions: sections.decisions ? 'Found' : 'EMPTY',
     actionItems: sections.actionItems ? 'Found' : 'EMPTY',
@@ -165,9 +174,9 @@ export function parseSummaryResponse(response: string): SummaryOutput {
 }
 
 /**
- * OllamaProvider class implementing LLMProvider interface
+ * ClaudeProvider class implementing LLMProvider interface
  */
-class OllamaProvider implements LLMProvider {
+class ClaudeProvider implements LLMProvider {
   generateSummary(messages: Message[], date: string): Promise<string> {
     return generateSummary(messages, date);
   }
@@ -177,13 +186,13 @@ class OllamaProvider implements LLMProvider {
   }
 
   getName(): string {
-    return 'Ollama';
+    return 'Claude';
   }
 }
 
 /**
- * Factory function to create an OllamaProvider instance
+ * Factory function to create a ClaudeProvider instance
  */
-export function getOllamaProvider(): LLMProvider {
-  return new OllamaProvider();
+export function getClaudeProvider(): LLMProvider {
+  return new ClaudeProvider();
 }

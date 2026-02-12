@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Teams AI Summarizer: A single-user web application for software engineering managers to automatically summarize Microsoft Teams conversations using AI. Monitors selected Teams channels and chats, generating daily and monthly digests with key highlights, decisions, and action items.
 
-**Tech Stack**: Next.js 14 (App Router), React 18, TypeScript, better-sqlite3, NextAuth, Microsoft Graph API, Ollama (local LLM)
+**Tech Stack**: Next.js 14 (App Router), React 18, TypeScript, better-sqlite3, NextAuth, Microsoft Graph API, Dual LLM Support (Ollama or Claude API)
 
 ## Quick Reference
 
@@ -60,6 +60,7 @@ teams-summerize/
 │   ├── api/               # API routes
 │   │   ├── auth/[...nextauth]/route.ts  # NextAuth endpoints (login/logout/session)
 │   │   ├── channels/route.ts            # GET monitored channels, POST to add channel
+│   │   ├── claude/chat/route.ts         # Claude playground endpoint
 │   │   ├── messages/route.ts            # GET messages from Teams for a channel
 │   │   └── summarize/route.ts           # POST to generate AI summary
 │   ├── layout.tsx         # Root layout
@@ -68,8 +69,10 @@ teams-summerize/
 │   └── globals.css        # Global styles
 ├── lib/                   # Core business logic
 │   ├── auth.ts           # Authentication utilities (requireAuth)
+│   ├── claude.ts         # Claude API client for summarization
 │   ├── db.ts             # Database layer (better-sqlite3)
 │   ├── errors.ts         # Custom error classes
+│   ├── llm-provider.ts   # LLM provider abstraction and factory
 │   ├── microsoft-graph.ts # Graph API client with retry logic
 │   ├── ollama.ts         # Ollama client for summarization
 │   └── validation.ts     # Zod schemas for input validation
@@ -82,10 +85,17 @@ teams-summerize/
 
 ### Key Implementation Details
 
+**LLM Provider Abstraction Layer** (lib/llm-provider.ts)
+- Supports both Ollama (local, free) and Claude API (cloud, higher quality)
+- Switch providers via `AI_PROVIDER` environment variable (ollama|claude)
+- Common interface: `generateSummary()`, `parseSummaryResponse()`, `getName()`
+- Factory pattern: `getLLMProvider()` returns appropriate provider
+- See [docs/claude-migration.md](docs/claude-migration.md) for switching providers
+
 **Error Handling Layer** (lib/errors.ts)
-- Custom error classes: `GraphAPIError`, `OllamaError`, `DatabaseError`, `ValidationError`, `AuthenticationError`
+- Custom error classes: `GraphAPIError`, `OllamaError`, `ClaudeAPIError`, `DatabaseError`, `ValidationError`, `AuthenticationError`
 - All API calls wrapped in try-catch with appropriate error types
-- Retry logic with exponential backoff for retriable errors (429, 500, 503)
+- Retry logic with exponential backoff for retriable errors (429, 500, 503, 529)
 
 **Database Layer** (lib/db.ts)
 - Uses better-sqlite3 (synchronous API)
@@ -115,12 +125,14 @@ teams-summerize/
 - Implement exponential backoff and aggressive caching from the start
 - See [docs/api-integrations.md](docs/api-integrations.md) for endpoint details
 
-**Ollama Summarization (Local LLM)**
-- Uses local Ollama instance (default: http://localhost:11434) with llama3 or mistral models
-- Generate structured summaries: overview, decisions, action items (with @mentions), blockers, resources
-- Includes retry logic for timeouts and connection errors (60s timeout per request)
-- Prompt format is defined in lib/ollama.ts:buildPrompt()
-- See [docs/api-integrations.md](docs/api-integrations.md) for prompt templates
+**AI Summarization (Dual Provider Support)**
+- **Ollama** (local, free, private): http://localhost:11434 with llama3 or mistral models
+- **Claude API** (cloud, higher quality): Anthropic's Claude Sonnet 4 via API
+- Switch providers via `AI_PROVIDER=ollama` or `AI_PROVIDER=claude` environment variable
+- Both providers generate structured summaries: overview, decisions, action items (with @mentions), blockers, resources
+- Includes retry logic for errors (timeouts, rate limits, server errors)
+- Prompt format defined in lib/ollama.ts:buildPrompt() and lib/claude.ts:buildPrompt()
+- See [docs/api-integrations.md](docs/api-integrations.md) for full details and [docs/claude-migration.md](docs/claude-migration.md) for switching
 
 ### Environment Setup
 
@@ -128,13 +140,21 @@ teams-summerize/
 - `AZURE_AD_CLIENT_ID`, `AZURE_AD_CLIENT_SECRET`, `AZURE_AD_TENANT_ID` - Microsoft Azure app credentials
 - `NEXTAUTH_URL` - Application URL (http://localhost:3000 for dev)
 - `NEXTAUTH_SECRET` - Secret for NextAuth (generate with `openssl rand -base64 32`)
+- `AI_PROVIDER` - LLM provider to use: 'ollama' (default) or 'claude'
+- `NEXT_PUBLIC_AI_PROVIDER` - Client-side provider display (same as AI_PROVIDER)
+- `DATABASE_PATH` - SQLite database path (default: ./data/app.db)
+
+**If using Ollama (AI_PROVIDER=ollama)**:
 - `OLLAMA_BASE_URL` - Ollama API endpoint (default: http://localhost:11434)
 - `OLLAMA_MODEL` - LLM model to use (default: llama3)
-- `DATABASE_PATH` - SQLite database path (default: ./data/app.db)
+
+**If using Claude API (AI_PROVIDER=claude)**:
+- `ANTHROPIC_API_KEY` - Your Anthropic API key from console.anthropic.com
+- `CLAUDE_MODEL` - Model to use (default: claude-sonnet-4-20250514)
 
 **Prerequisites**:
 - Node.js 18.17+ (required for Next.js 14)
-- Ollama installed and running locally (or update OLLAMA_BASE_URL)
+- **Either** Ollama installed locally **or** Anthropic API key
 - Microsoft Azure AD app registration with Graph API permissions
 
 ### Development Approach

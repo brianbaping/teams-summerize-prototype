@@ -154,7 +154,7 @@ describe('Validation Schemas', () => {
 
     it('should validate correct environment variables', () => {
       const result = envSchema.parse(validEnv);
-      expect(result).toEqual(validEnv);
+      expect(result).toEqual({ ...validEnv, AI_PROVIDER: 'ollama' }); // Default value added by schema
     });
 
     it('should reject missing required variables', () => {

@@ -49,6 +49,16 @@ export class OllamaError extends AppError {
 }
 
 /**
+ * Error for Claude API failures
+ * Includes rate limits, overloads, and generation errors
+ */
+export class ClaudeAPIError extends AppError {
+  constructor(message: string, details?: any) {
+    super(message, 'CLAUDE_API_ERROR', 503, details);
+  }
+}
+
+/**
  * Error for database operations
  * Includes constraint violations and query failures
  */
@@ -95,6 +105,12 @@ export function isRetriableError(error: any): boolean {
       message.includes('econnrefused') ||
       message.includes('connection')
     );
+  }
+
+  if (error instanceof ClaudeAPIError) {
+    // Retry on rate limit (429), overload (529), server errors (500, 503)
+    const status = error.details?.statusCode;
+    return status === 429 || status === 529 || status === 500 || status === 503;
   }
 
   return false;
