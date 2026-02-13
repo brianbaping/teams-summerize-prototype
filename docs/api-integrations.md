@@ -4,25 +4,24 @@
 
 ### Authentication
 Uses Microsoft OAuth 2.0 with delegated permissions:
-- `Chat.Read` - Read user chat messages
-- `ChannelMessage.Read.All` - Read all channel messages
-- `Team.ReadBasic.All` - Read basic team information
+- `Chat.Read` - Read user chat messages (1:1 and group conversations)
+
+**Note**: This app focuses on chats (not Teams channels), so only `Chat.Read` permission is required. Permissions like `ChannelMessage.Read.All` and `Team.ReadBasic.All` are not needed.
 
 ### Key Endpoints
 
 ```javascript
-// List all teams user has joined
-GET /me/joinedTeams
-
-// List channels in a team
-GET /teams/{team-id}/channels
-
-// Get channel messages
-GET /teams/{team-id}/channels/{channel-id}/messages
+// List all chats user has access to
+GET /me/chats
 
 // Get chat messages
 GET /me/chats/{chat-id}/messages
+
+// Get chat details
+GET /me/chats/{chat-id}
 ```
+
+**Note**: The app no longer uses `/me/joinedTeams` or `/teams/{team-id}/channels` endpoints since it focuses on chats, not Teams channels.
 
 ### Critical Considerations
 
@@ -79,9 +78,15 @@ GET /me/chats/{chat-id}/messages
 - Message threads need special handling
 - Consider flattening threads or preserving hierarchy based on summarization needs
 
+**Smart Filtering**
+- By default, only show chats with activity in the last 7 days
+- Adjustable via advanced options in the UI
+- Reduces clutter and focuses on active conversations
+- Users can mark chats as "ignored" via status field in database
+
 **Incremental Fetching**
 - Use delta queries to fetch only new messages since last sync
-- Store last sync timestamp per channel
+- Store last sync timestamp per chat
 - Reduces API calls and processing time
 
 ## Ollama API (Local LLM)
@@ -95,7 +100,7 @@ POST http://localhost:11434/api/generate
 
 **Prompt Template**
 ```
-Summarize the following Teams channel conversation from [date].
+Summarize the following Teams chat conversation from [date].
 
 Focus on:
 1. Key discussion topics and themes
@@ -146,7 +151,7 @@ Provide a concise summary in the following format:
   ```
 
 **Token/Context Limits**
-- Very active channels may exceed model context window
+- Very active chats may exceed model context window
 - Implement message chunking for large conversations (>4000 messages)
 - Consider summarizing in batches then creating daily rollup
 - Preserve context across chunks when possible
@@ -214,7 +219,7 @@ const response = await client.messages.create({
 
 **Prompt Template** (identical to Ollama for consistency)
 ```
-Summarize the following Teams channel conversation from [date].
+Summarize the following Teams chat conversation from [date].
 
 Focus on:
 1. Key discussion topics and themes
@@ -276,7 +281,7 @@ Resources: (links mentioned, otherwise "None")
 **Token Limits**
 - Context window: 200k tokens (very large)
 - Output limit: 4k tokens (set via max_tokens parameter)
-- Typical Teams conversation: 10k-50k input tokens
+- Typical Teams chat conversation: 10k-50k input tokens
 - Monitor token usage via `response.usage.input_tokens` and `response.usage.output_tokens`
 
 **Error Handling**
@@ -300,7 +305,7 @@ Resources: (links mentioned, otherwise "None")
 
 **Cost Management**
 - Log all API calls with token counts
-- Estimate: $0.50-2.00 per day for typical usage (5 channels)
+- Estimate: $0.50-2.00 per day for typical usage (5 chats)
 - Monthly cost: ~$15-60
 - Set up billing alerts in Anthropic console
 - Consider caching summaries aggressively

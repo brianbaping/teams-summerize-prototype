@@ -41,7 +41,7 @@ The application supports two AI providers for summarization:
 
 **Best for**: Production use, high-quality summaries, or when local resources are limited
 
-**Cost Estimate**: Typical usage (5 monitored channels) costs $0.50-2.00 per day.
+**Cost Estimate**: Typical usage (5 monitored chats) costs $0.50-2.00 per day.
 
 ### Recommendation
 
@@ -62,10 +62,10 @@ The application supports two AI providers for summarization:
    - Add description and expiration
    - Note the **secret value** (shown only once)
 6. Go to "API permissions" → "Add a permission" → "Microsoft Graph" → "Delegated permissions"
-   - Add: `Chat.Read`
-   - Add: `ChannelMessage.Read.All`
-   - Add: `Team.ReadBasic.All`
+   - Add: `Chat.Read` - Read user chat messages (1:1 and group conversations)
 7. Click "Grant admin consent" if you have admin privileges
+
+**Note**: This app focuses on Teams chats (not channels), so only `Chat.Read` permission is required. Permissions like `ChannelMessage.Read.All` and `Team.ReadBasic.All` are not needed.
 
 ## AI Provider Setup
 
@@ -244,4 +244,6 @@ npm run test:coverage
 1. Navigate to `http://localhost:3000`
 2. Click "Sign in with Microsoft"
 3. Complete OAuth flow
-4. Verify you can see your Teams channels listed
+4. Verify you can see your Teams chats listed (1:1 and group conversations)
+
+**Note**: By default, only chats with activity in the last 7 days are shown. Use advanced options to adjust this filter.

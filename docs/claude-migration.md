@@ -27,7 +27,7 @@ The application supports two LLM providers:
 
 ## Cost Estimates for Claude API
 
-**Typical Daily Usage** (5 monitored channels):
+**Typical Daily Usage** (5 monitored chats):
 - Input tokens: 10k-50k tokens/day
 - Output tokens: 500-1000 tokens/day
 - **Daily cost: $0.50 - $2.00**
@@ -150,7 +150,7 @@ The application will now:
 
 ### Test Summarization
 
-1. Monitor a Teams channel
+1. Monitor a Teams chat
 2. Fetch messages for a date
 3. Click "Generate Summary"
 4. Check the logs:
@@ -257,8 +257,8 @@ NEXT_PUBLIC_AI_PROVIDER=ollama  # Must match!
 
 1. **Start with Ollama** to test the application without costs
 2. **Try Claude for a week** to compare summary quality
-3. **Use Claude for critical channels** where quality matters
-4. **Use Ollama for high-volume** channels to save costs
+3. **Use Claude for critical chats** where quality matters
+4. **Use Ollama for high-volume** chats to save costs
 5. **Monitor your Claude API usage** at console.anthropic.com
 
 ## Rollback Plan

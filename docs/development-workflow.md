@@ -46,22 +46,22 @@ Follow this cycle for all new features:
 // 1. RED: Write failing test
 test('should fetch messages from Graph API', async () => {
   const client = new GraphAPIClient(mockToken);
-  const messages = await client.getChannelMessages('team1', 'channel1');
+  const messages = await client.getChatMessages('chat1');
   expect(messages).toHaveLength(5);
   expect(messages[0]).toHaveProperty('content');
 });
 
 // 2. GREEN: Implement minimal code
-async getChannelMessages(teamId: string, channelId: string) {
-  const response = await this.client.api(`/teams/${teamId}/channels/${channelId}/messages`).get();
+async getChatMessages(chatId: string) {
+  const response = await this.client.api(`/me/chats/${chatId}/messages`).get();
   return response.value;
 }
 
 // 3. REFACTOR: Add error handling, pagination, etc.
-async getChannelMessages(teamId: string, channelId: string) {
+async getChatMessages(chatId: string) {
   try {
     let allMessages = [];
-    let url = `/teams/${teamId}/channels/${channelId}/messages`;
+    let url = `/me/chats/${chatId}/messages`;
 
     while (url) {
       const response = await this.client.api(url).get();
@@ -84,7 +84,7 @@ async getChannelMessages(teamId: string, channelId: string) {
 ## Implementation Phases
 
 ### Phase 1: MVP (Week 1-2)
-**Goal**: Basic working prototype with single channel using TDD
+**Goal**: Basic working prototype with single chat using TDD
 
 **Setup (Day 1)**
 - [ ] Create Next.js project with TypeScript
@@ -97,7 +97,7 @@ async getChannelMessages(teamId: string, channelId: string) {
 - [ ] Write tests for error classes (lib/errors.test.ts)
 - [ ] Implement custom error classes (GraphAPIError, OllamaError, DatabaseError, ValidationError)
 - [ ] Write tests for database layer (db.test.ts) - use :memory: database
-- [ ] Implement database with three tables (monitored_channels, messages, summaries)
+- [ ] Implement database with three tables (monitored_chats, messages, summaries)
 - [ ] Write tests for validation schemas (validation.test.ts)
 - [ ] Implement Zod schemas for input validation
 - [ ] Verify: All tests pass, 100% coverage for lib/errors.ts, lib/db.ts, lib/validation.ts
@@ -114,7 +114,8 @@ async getChannelMessages(teamId: string, channelId: string) {
 - [ ] Test pagination handling
 - [ ] Test retry logic with exponential backoff
 - [ ] Test error handling (401, 429, 500)
-- [ ] Implement Graph client (getJoinedTeams, getChannels, getChannelMessages)
+- [ ] Implement Graph client (getChats, getChatMessages)
+- [ ] Implement smart filtering (only chats with activity in last 7 days)
 - [ ] Implement retry logic with exponential backoff
 - [ ] Verify: All tests pass, 100% coverage for lib/microsoft-graph.ts
 
@@ -129,8 +130,8 @@ async getChannelMessages(teamId: string, channelId: string) {
 - [ ] Verify: All tests pass, 100% coverage for lib/ollama.ts
 
 **API Routes (Day 8-9)**
-- [ ] Write tests for /api/channels route
-- [ ] Implement /api/channels (GET: list teams/channels, POST: save monitored channel)
+- [ ] Write tests for /api/chats route
+- [ ] Implement /api/chats (GET: list chats, POST: save monitored chat)
 - [ ] Write tests for /api/messages route
 - [ ] Implement /api/messages (GET: fetch and cache messages)
 - [ ] Write tests for /api/summarize route
@@ -144,7 +145,7 @@ async getChannelMessages(teamId: string, channelId: string) {
 
 **Frontend UI (Day 11-12)**
 - [ ] Implement dashboard page (app/page.tsx) - show auth status, latest summary
-- [ ] Implement setup page (app/setup/page.tsx) - select channel to monitor
+- [ ] Implement setup page (app/setup/page.tsx) - select chat to monitor (ChatSelector component)
 - [ ] Implement summaries history page (app/summaries/page.tsx)
 - [ ] Add loading states and error handling
 - [ ] Verify: UI displays correctly, handles errors gracefully
@@ -152,25 +153,27 @@ async getChannelMessages(teamId: string, channelId: string) {
 **End-to-End Testing (Day 13-14)**
 - [ ] Run full test suite: `npm run test:ci`
 - [ ] Check test coverage: `npm run test:coverage`
-- [ ] Manual testing: authenticate, select channel, fetch messages, generate summary
+- [ ] Manual testing: authenticate, select chat, fetch messages, generate summary
 - [ ] Test error scenarios (Ollama not running, invalid date ranges, etc.)
+- [ ] Test smart filtering (only chats with recent activity shown)
 - [ ] Verify all success criteria met
 
-**Deliverable**: Can authenticate, fetch messages from one channel, generate AI summary locally, with 100% test coverage for business logic
+**Deliverable**: Can authenticate, fetch messages from one chat, generate AI summary locally, with 100% test coverage for business logic
 
 ### Phase 2: Core Features (Week 3-4)
-**Goal**: Multi-channel support and daily digest automation
+**Goal**: Multi-chat support and daily digest automation
 
-- [ ] Build configuration panel for channel selection
-- [ ] Implement multi-channel message fetching
+- [ ] Build configuration panel for chat selection with smart filtering
+- [ ] Implement multi-chat message fetching
+- [ ] Add status field to mark chats as "ignored"
 - [ ] Create task/action item extraction logic
 - [ ] Build daily digest generation workflow
 - [ ] Add date range filtering
 - [ ] Implement basic search functionality
 - [ ] Set up database schema for caching
-- [ ] Create dashboard UI with channel organization
+- [ ] Create dashboard UI with chat organization
 
-**Deliverable**: Can monitor multiple channels, generate daily digests, and search summaries
+**Deliverable**: Can monitor multiple chats, generate daily digests, and search summaries
 
 ### Phase 3: Polish (Week 5+)
 **Goal**: Monthly rollups and production-ready features
@@ -211,7 +214,8 @@ This order ensures tests are written before implementation, following TDD princi
 4. **Microsoft Graph Client** (TDD)
    - Write tests with mocked Graph API responses
    - Test pagination, retry logic, error handling
-   - Implement Graph client functions
+   - Implement Graph client functions (getChats, getChatMessages)
+   - Implement smart filtering logic (only chats with recent activity)
    - Verify 100% test coverage
 
 5. **Ollama Client** (TDD)
@@ -247,10 +251,11 @@ This order ensures tests are written before implementation, following TDD princi
 ## Development Best Practices
 
 ### Caching Strategy
-- Cache Teams messages aggressively to minimize API calls
+- Cache Teams chat messages aggressively to minimize API calls
 - Store generated summaries to avoid regeneration
 - Implement cache invalidation for new messages
 - Use incremental fetching with delta queries
+- Smart filtering: Only show chats with activity in last 7 days by default
 
 ### Error Handling
 - Implement exponential backoff for API rate limits
@@ -328,12 +333,13 @@ npm run format
 - [ ] Session persists on page reload
 - [ ] Tokens stored in httpOnly cookies (check DevTools)
 
-**Channel Selection Testing**
+**Chat Selection Testing**
 - [ ] Navigate to /setup
-- [ ] Teams/channels list loads from Graph API
-- [ ] Select a test channel
+- [ ] Chats list loads from Graph API (only chats with activity in last 7 days shown)
+- [ ] Select a test chat
 - [ ] Configuration saved to database
-- [ ] Check database: `sqlite3 data/app.db "SELECT * FROM monitored_channels;"`
+- [ ] Check database: `sqlite3 data/app.db "SELECT * FROM monitored_chats;"`
+- [ ] Test advanced options to adjust activity filter
 
 **Message Fetching Testing**
 - [ ] Trigger message sync (button or API call)

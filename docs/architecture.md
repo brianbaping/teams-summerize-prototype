@@ -38,7 +38,7 @@ The application follows a standard three-tier web application pattern:
 - User interface for dashboard and configuration
 - Authentication flow handling
 - Display of summaries and search results
-- Channel/chat selection interface
+- Chat selection interface (1:1 and group conversations)
 
 ### Backend API (Node.js/Next.js API Routes)
 - Business logic orchestration
@@ -56,35 +56,38 @@ The application follows a standard three-tier web application pattern:
 
 ### Validation Layer (lib/validation.ts)
 - Zod schemas for input validation:
-  - Channel selection payloads
+  - Chat selection payloads
   - Date range parameters
   - API request bodies
 - Validates data at system boundaries (user input, API responses)
 
 ### Database (SQLite)
-- Stores monitored channels configuration
+- Stores monitored chats configuration (1:1 and group conversations)
 - Caches Teams messages to reduce API calls
 - Persists generated summaries for search and historical access
 
 ### External APIs
-- **Microsoft Graph API**: Fetches Teams messages and channel information
+- **Microsoft Graph API**: Fetches Teams chat messages and conversation information
 - **Ollama**: Local LLM for AI summarization (llama3 or mistral)
 
 ## Database Schema
 
-### monitored_channels
-Tracks which Teams channels/chats to monitor.
+### monitored_chats
+Tracks which Teams chats (1:1 and group conversations) to monitor.
 
 ```sql
-CREATE TABLE monitored_channels (
+CREATE TABLE monitored_chats (
   id INTEGER PRIMARY KEY,
-  team_id TEXT NOT NULL,
-  channel_id TEXT NOT NULL,
-  channel_name TEXT,
+  chat_id TEXT UNIQUE NOT NULL,
+  chat_name TEXT,
+  chat_type TEXT, -- 'oneOnOne' or 'group'
+  status TEXT DEFAULT 'active', -- 'active' or 'ignored'
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
+
+**Note**: Chats don't have `team_id` since they exist independently of Teams channels.
 
 ### messages
 Caches fetched Teams messages to reduce API calls.
@@ -93,7 +96,7 @@ Caches fetched Teams messages to reduce API calls.
 CREATE TABLE messages (
   id INTEGER PRIMARY KEY,
   message_id TEXT UNIQUE NOT NULL,
-  channel_id TEXT NOT NULL,
+  chat_id TEXT NOT NULL,
   author TEXT,
   content TEXT,
   created_at TIMESTAMP,
@@ -107,7 +110,7 @@ Stores generated AI summaries.
 ```sql
 CREATE TABLE summaries (
   id INTEGER PRIMARY KEY,
-  channel_id TEXT NOT NULL,
+  chat_id TEXT NOT NULL,
   summary_type TEXT, -- 'daily' or 'monthly'
   period_start DATE,
   period_end DATE,
@@ -119,12 +122,13 @@ CREATE TABLE summaries (
 
 ## Data Flow
 
-1. **Message Fetching**: Backend periodically calls Microsoft Graph API to fetch new messages from monitored channels
-2. **Caching**: Messages are stored in the database to minimize API calls
-3. **Summarization**: On schedule (daily/monthly), messages are batched and sent to Ollama for summarization
-4. **Storage**: Generated summaries are stored in the database
-5. **Display**: Frontend queries backend API to retrieve and display summaries
-6. **Search**: Full-text search queries the summaries table with date/channel filters
+1. **Message Fetching**: Backend periodically calls Microsoft Graph API to fetch new messages from monitored chats
+2. **Smart Filtering**: Only chats with activity in the last 7 days are shown by default (adjustable via advanced options)
+3. **Caching**: Messages are stored in the database to minimize API calls
+4. **Summarization**: On schedule (daily/monthly), messages are batched and sent to Ollama for summarization
+5. **Storage**: Generated summaries are stored in the database
+6. **Display**: Frontend queries backend API to retrieve and display summaries
+7. **Search**: Full-text search queries the summaries table with date/chat filters
 
 ## Error Handling Flow
 
