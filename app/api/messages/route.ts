@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { GraphAPIClient } from '@/lib/microsoft-graph';
-import { getDatabase, getMonitoredChannel, saveMessage, getMessages } from '@/lib/db';
+import { getDatabase, getMonitoredChat, saveMessage, getMessages } from '@/lib/db';
 import { messageFetchSchema } from '@/lib/validation';
 
 /**
- * GET /api/messages - Fetch messages from monitored channel
- * Query params: channelId (required), since (optional ISO date)
+ * GET /api/messages - Fetch messages from monitored chat
+ * Query params: chatId (required), since (optional ISO date)
  */
 export async function GET(request: Request) {
   try {
@@ -14,32 +14,31 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
 
     const validated = messageFetchSchema.parse({
-      channelId: searchParams.get('channelId'),
+      chatId: searchParams.get('chatId'),
       since: searchParams.get('since') || undefined,
     });
 
     const db = getDatabase();
-    const channel = getMonitoredChannel(db, validated.channelId);
+    const chat = getMonitoredChat(db, validated.chatId);
 
-    if (!channel) {
+    if (!chat) {
       return NextResponse.json(
         {
           success: false,
           error: {
             code: 'NOT_FOUND',
-            message: 'Channel not monitored',
+            message: 'Chat not monitored',
           },
         },
         { status: 404 }
       );
     }
 
-    // Fetch new messages from Graph API
+    // Fetch new messages from Graph API (use 'since' to avoid refetching old messages)
     const client = new GraphAPIClient(session.accessToken!);
     const sinceDate = validated.since ? new Date(validated.since) : undefined;
-    const newMessages = await client.getChannelMessages(
-      channel.teamId,
-      channel.channelId,
+    const newMessages = await client.getChatMessages(
+      chat.chatId,
       sinceDate
     );
 
@@ -49,7 +48,7 @@ export async function GET(request: Request) {
       try {
         saveMessage(db, {
           messageId: msg.id,
-          channelId: channel.channelId,
+          chatId: chat.chatId,
           author: msg.from?.user?.displayName,
           content: msg.body?.content,
           createdAt: msg.createdDateTime,
@@ -60,8 +59,9 @@ export async function GET(request: Request) {
       }
     }
 
-    // Return all messages
-    const allMessages = getMessages(db, validated.channelId, sinceDate);
+    // Return ALL cached messages from database (no server-side date filtering)
+    // Let the client handle date range filtering for display
+    const allMessages = getMessages(db, validated.chatId);
 
     return NextResponse.json({
       success: true,

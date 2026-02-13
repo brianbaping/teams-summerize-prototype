@@ -3,7 +3,6 @@
 import { useSession, signIn, signOut } from 'next-auth/react';
 import ChannelSelector from '@/components/ChannelSelector';
 import MessageViewer from '@/components/MessageViewer';
-import SummarizePanel from '@/components/SummarizePanel';
 import OllamaPlayground from '@/components/OllamaPlayground';
 import ClaudePlayground from '@/components/ClaudePlayground';
 import ProviderToggle from '@/components/ProviderToggle';
@@ -89,7 +88,6 @@ export default function Home() {
           {provider === 'claude' ? <ClaudePlayground /> : <OllamaPlayground />}
           <ChannelSelector />
           <MessageViewer />
-          <SummarizePanel />
         </div>
       </div>
     </main>

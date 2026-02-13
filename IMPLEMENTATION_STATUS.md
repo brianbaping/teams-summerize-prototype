@@ -37,8 +37,8 @@
 
 ### 5. Database Layer ✅
 - SQLite with better-sqlite3
-- Schema: `monitored_channels`, `messages`, `summaries`
-- Full CRUD operations
+- Schema: `monitored_chats`, `messages`, `summaries`
+- Full CRUD operations for chat-based system
 - Indexes for performance
 - **Tests**: 25/25 passing
 
@@ -50,7 +50,9 @@
 - **Status**: Working in both modes
 
 ### 7. Microsoft Graph API Client ✅
-- Methods: `getJoinedTeams()`, `getChannels()`, `getChannelMessages()`
+- Methods: `getChats()` (with 7-day activity filter), `getChatMessages()`
+- Smart filtering: Only shows chats with activity in last 7 days
+- Limit: Top 50 most recent chats
 - Pagination handling
 - Rate limit handling (429 retry)
 - Mock data support for development
@@ -65,9 +67,9 @@
 - **Tests**: 10/10 passing
 
 ### 9. API Routes ✅
-- `GET /api/channels` - List teams and channels
-- `POST /api/channels` - Save monitored channel
-- `GET /api/messages` - Fetch and cache messages
+- `GET /api/chats` - List recent chats (last 7 days, max 50)
+- `POST /api/chats` - Save monitored chat
+- `GET /api/messages` - Fetch and cache chat messages
 - `POST /api/summarize` - Generate AI summary
 - Authentication on all routes
 - Input validation with Zod
@@ -82,21 +84,23 @@ All UI components implemented and integrated:
 - Performance metrics (tokens, duration)
 - Keyboard shortcuts (Ctrl/Cmd+Enter)
 
-**ChannelSelector** (`components/ChannelSelector.tsx`)
-- Browse teams and channels
-- Add channels to monitor
+**ChatSelector** (`components/ChannelSelector.tsx`)
+- Browse recent chats (1:1 and group)
+- Smart filtering: Only chats from last 7 days
+- Add chats to monitor
 - Show monitoring status
+- Chat type indicators (1:1, Group, Meeting)
 - Real-time updates
 
 **MessageViewer** (`components/MessageViewer.tsx`)
-- Display messages from monitored channels
+- Display messages from monitored chats
 - Author avatars and timestamps
 - Relative time display ("2 hours ago")
 - Refresh button to fetch new messages
 - HTML content stripping
 
 **SummarizePanel** (`components/SummarizePanel.tsx`)
-- Channel and date selection
+- Chat and date selection
 - Generate summary button with loading state
 - Structured output display:
   - 📋 Overview

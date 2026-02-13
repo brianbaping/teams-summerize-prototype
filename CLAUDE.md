@@ -59,9 +59,9 @@ teams-summerize/
 ├── app/                    # Next.js App Router
 │   ├── api/               # API routes
 │   │   ├── auth/[...nextauth]/route.ts  # NextAuth endpoints (login/logout/session)
-│   │   ├── channels/route.ts            # GET monitored channels, POST to add channel
+│   │   ├── chats/route.ts               # GET recent chats (7 days), POST to add chat
 │   │   ├── claude/chat/route.ts         # Claude playground endpoint
-│   │   ├── messages/route.ts            # GET messages from Teams for a channel
+│   │   ├── messages/route.ts            # GET messages from Teams for a chat
 │   │   └── summarize/route.ts           # POST to generate AI summary
 │   ├── layout.tsx         # Root layout
 │   ├── page.tsx           # Main dashboard
@@ -99,7 +99,8 @@ teams-summerize/
 
 **Database Layer** (lib/db.ts)
 - Uses better-sqlite3 (synchronous API)
-- Functions: `getDatabase()`, `initializeDatabase()`, `saveMonitoredChannel()`, `getMessages()`, etc.
+- Functions: `getDatabase()`, `initializeDatabase()`, `saveMonitoredChat()`, `getMessages()`, etc.
+- Schema: `monitored_chats` (not channels), `messages`, `summaries`
 - Path aliases: Use `@/lib/db` or `@/app/...` in imports (configured in tsconfig.json and jest.config.js)
 
 **Validation Layer** (lib/validation.ts)
@@ -120,7 +121,9 @@ teams-summerize/
 ### Critical Integration Details
 
 **Microsoft Graph API**
-- Uses OAuth 2.0 with delegated permissions: `Chat.Read`, `ChannelMessage.Read.All`, `Team.ReadBasic.All`
+- Uses OAuth 2.0 with delegated permissions: `Chat.Read`
+- Fetches chats from `/me/chats` endpoint
+- Smart filtering: Only chats with activity in last 7 days (max 50 results)
 - MUST handle pagination, rate limiting (429 responses), and token refresh
 - Implement exponential backoff and aggressive caching from the start
 - See [docs/api-integrations.md](docs/api-integrations.md) for endpoint details
@@ -169,9 +172,9 @@ teams-summerize/
 ### Database Schema
 
 Three core tables (full schema in [docs/architecture.md](docs/architecture.md)):
-- `monitored_channels`: Configuration for which channels to track
-- `messages`: Cached Teams messages to reduce API calls
-- `summaries`: Generated AI summaries (daily/monthly with action_items JSON)
+- `monitored_chats`: Configuration for which chats to track (chatId, chatName, chatType)
+- `messages`: Cached Teams messages to reduce API calls (uses chatId, not channelId)
+- `summaries`: Generated AI summaries (daily/monthly with action_items JSON, uses chatId)
 
 ### Testing Strategy
 

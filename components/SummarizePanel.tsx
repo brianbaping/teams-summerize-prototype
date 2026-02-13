@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useProvider } from '@/contexts/ProviderContext';
 
-interface MonitoredChannel {
+interface MonitoredChat {
   id: number;
-  channelId: string;
-  channelName: string;
+  chatId: string;
+  chatName: string;
   teamId: string;
 }
 
@@ -27,8 +27,8 @@ interface SummaryResult {
 
 export default function SummarizePanel() {
   const { provider } = useProvider();
-  const [channels, setChannels] = useState<MonitoredChannel[]>([]);
-  const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
+  const [chats, setChats] = useState<MonitoredChat[]>([]);
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     // Default to today
     return new Date().toISOString().split('T')[0];
@@ -36,27 +36,28 @@ export default function SummarizePanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<SummaryResult | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // Fetch monitored channels on mount
+  // Fetch monitored chats on mount
   useEffect(() => {
-    fetchMonitoredChannels();
+    fetchMonitoredChats();
   }, []);
 
-  const fetchMonitoredChannels = async () => {
+  const fetchMonitoredChats = async () => {
     try {
-      const response = await fetch('/api/channels');
+      const response = await fetch('/api/chats');
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error(data.error?.message || 'Failed to fetch channels');
+        throw new Error(data.error?.message || 'Failed to fetch chats');
       }
 
       const monitored = data.data.monitored || [];
-      setChannels(monitored);
+      setChats(monitored);
 
-      // Auto-select first channel if available
-      if (monitored.length > 0 && !selectedChannel) {
-        setSelectedChannel(monitored[0].channelId);
+      // Auto-select first chat if available
+      if (monitored.length > 0 && !selectedChat) {
+        setSelectedChat(monitored[0].chatId);
       }
     } catch (err: any) {
       setError(err.message);
@@ -64,8 +65,8 @@ export default function SummarizePanel() {
   };
 
   const generateSummary = async () => {
-    if (!selectedChannel) {
-      setError('Please select a channel');
+    if (!selectedChat) {
+      setError('Please select a chat');
       return;
     }
 
@@ -78,7 +79,7 @@ export default function SummarizePanel() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          channelId: selectedChannel,
+          chatId: selectedChat,
           date: selectedDate,
           provider, // Pass selected provider
         }),
@@ -98,13 +99,13 @@ export default function SummarizePanel() {
     }
   };
 
-  if (channels.length === 0) {
+  if (chats.length === 0) {
     return (
       <div className="bg-white shadow-md rounded-lg p-6">
         <h2 className="text-xl font-semibold mb-4">AI Summarization</h2>
         <div className="bg-blue-50 border border-blue-200 rounded p-4">
           <p className="text-blue-800">
-            No channels are being monitored yet. Add a channel above to generate summaries.
+            No chats are being monitored yet. Add a chat above to generate summaries.
           </p>
         </div>
       </div>
@@ -112,32 +113,48 @@ export default function SummarizePanel() {
   }
 
   return (
-    <div className="bg-white shadow-md rounded-lg p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold">AI Summarization</h2>
-        <div className="flex items-center space-x-2">
+    <div className="bg-white shadow-md rounded-lg p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-semibold">AI Summarization</h2>
+        <div className="flex items-center gap-2">
           <span className="text-xs text-gray-600">Powered by</span>
-          <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded">
-            Ollama (llama3)
+          <span className={`px-2 py-1 text-xs font-semibold rounded ${
+            provider === 'claude'
+              ? 'bg-blue-100 text-blue-800'
+              : 'bg-purple-100 text-purple-800'
+          }`}>
+            {provider === 'claude' ? 'Claude API' : 'Ollama (Local)'}
           </span>
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="text-gray-500 hover:text-gray-700 text-sm font-medium ml-2"
+          >
+            {isCollapsed ? '+ Expand' : '− Collapse'}
+          </button>
         </div>
       </div>
 
+      {isCollapsed ? (
+        <div className="text-sm text-gray-500">
+          {summary ? 'Summary generated' : 'Ready to generate summaries'}
+        </div>
+      ) : (
+        <>
       {/* Controls */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        {/* Channel Selector */}
+        {/* Chat Selector */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Channel
+            Chat
           </label>
           <select
-            value={selectedChannel || ''}
-            onChange={(e) => setSelectedChannel(e.target.value)}
+            value={selectedChat || ''}
+            onChange={(e) => setSelectedChat(e.target.value)}
             className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
           >
-            {channels.map((channel) => (
-              <option key={channel.channelId} value={channel.channelId}>
-                {channel.channelName}
+            {chats.map((chat) => (
+              <option key={chat.chatId} value={chat.chatId}>
+                {chat.chatName}
               </option>
             ))}
           </select>
@@ -160,7 +177,7 @@ export default function SummarizePanel() {
         <div className="flex items-end">
           <button
             onClick={generateSummary}
-            disabled={loading || !selectedChannel}
+            disabled={loading || !selectedChat}
             className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-semibold rounded"
           >
             {loading ? (
@@ -286,6 +303,8 @@ export default function SummarizePanel() {
             </>
           )}
         </div>
+      )}
+      </>
       )}
     </div>
   );

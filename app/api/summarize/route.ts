@@ -6,8 +6,8 @@ import { GraphAPIClient } from '@/lib/microsoft-graph';
 import type { Message } from '@/lib/microsoft-graph';
 
 /**
- * POST /api/summarize - Generate AI summary for a date
- * Body: { channelId, date, provider? }
+ * POST /api/summarize - Generate AI summary for a date range
+ * Body: { chatId, startDate, endDate, provider? }
  */
 export async function POST(request: Request) {
   try {
@@ -20,9 +20,10 @@ export async function POST(request: Request) {
     // Get provider from request or use environment default
     const provider = body.provider || process.env.AI_PROVIDER || 'ollama';
 
-    // Get messages for the date
-    const date = new Date(validated.date);
-    const messages = getMessagesByDateRange(db, validated.channelId, date, date);
+    // Get messages for the date range
+    const startDate = new Date(validated.startDate);
+    const endDate = new Date(validated.endDate);
+    const messages = getMessagesByDateRange(db, validated.chatId, startDate, endDate);
 
     if (messages.length === 0) {
       return NextResponse.json(
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
           success: false,
           error: {
             code: 'NO_MESSAGES',
-            message: 'No messages found for this date',
+            message: 'No messages found for this date range',
           },
         },
         { status: 404 }
@@ -54,7 +55,8 @@ export async function POST(request: Request) {
 
     const llmProvider = getLLMProvider();
     console.log(`[Summarize] Using LLM provider: ${llmProvider.getName()} (${provider})`);
-    const summaryText = await llmProvider.generateSummary(graphMessages, validated.date);
+    const dateRangeLabel = `${validated.startDate} to ${validated.endDate}`;
+    const summaryText = await llmProvider.generateSummary(graphMessages, dateRangeLabel);
     const parsed = llmProvider.parseSummaryResponse(summaryText);
 
     // Restore original environment variable
@@ -62,9 +64,9 @@ export async function POST(request: Request) {
 
     // Save to database
     const summaryId = saveSummary(db, {
-      channelId: validated.channelId,
-      periodStart: date,
-      periodEnd: date,
+      chatId: validated.chatId,
+      periodStart: startDate,
+      periodEnd: endDate,
       summaryText,
       actionItems: JSON.stringify({
         overview: parsed.overview,

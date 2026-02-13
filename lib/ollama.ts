@@ -99,28 +99,27 @@ function buildPrompt(messages: Message[], date: string): string {
     })
     .join('\n');
 
-  return `Summarize the following Teams channel conversation from ${date}.
-
-Focus on:
-1. Key discussion topics and themes
-2. Decisions that were made
-3. Action items and who they're assigned to
-4. Any blockers or concerns raised
-5. Important links or resources mentioned
+  return `Summarize the following Teams chat conversation from ${date}.
 
 Messages:
 ${formattedMessages}
 
-Provide a concise summary in the following format:
-Overview: (2-3 sentences)
+IMPORTANT: Follow this EXACT format with each section on a new line. Do NOT include section content in other sections.
 
-Key Decisions: (bullet points)
+**Overview:**
+[Write 2-3 sentences summarizing the main topics discussed. DO NOT include decisions, action items, or blockers here - only the general conversation theme.]
 
-Action Items: (bullet points with @mentions)
+**Key Decisions:**
+[List only the decisions that were made, using bullet points (•). If none, write "None"]
 
-Blockers: (if any, otherwise "None")
+**Action Items:**
+[List only the tasks/actions with assignees, using bullet points (•). Format: • Task description (@PersonName). If none, write "None"]
 
-Resources: (links mentioned, otherwise "None")`;
+**Blockers:**
+[List only the blockers/concerns raised, using bullet points (•). If none, write "None"]
+
+**Resources:**
+[List only the links/resources mentioned, using bullet points (•). If none, write "None"]`;
 }
 
 /**
@@ -139,13 +138,13 @@ export function parseSummaryResponse(response: string): SummaryOutput {
     resources: '',
   };
 
-  // Extract each section using regex (using [\s\S] instead of . with s flag for compatibility)
-  // Try with case-insensitive matching and more flexible patterns
-  const overviewMatch = response.match(/Overview:?\s*([\s\S]*?)(?=\n\s*Key Decisions:?|\n\s*Action Items:?|\n\s*Blockers:?|\n\s*Resources:?|$)/i);
-  const decisionsMatch = response.match(/Key Decisions:?\s*([\s\S]*?)(?=\n\s*Action Items:?|\n\s*Blockers:?|\n\s*Resources:?|$)/i);
-  const actionItemsMatch = response.match(/Action Items:?\s*([\s\S]*?)(?=\n\s*Blockers:?|\n\s*Resources:?|$)/i);
-  const blockersMatch = response.match(/Blockers:?\s*([\s\S]*?)(?=\n\s*Resources:?|$)/i);
-  const resourcesMatch = response.match(/Resources:?\s*([\s\S]*?)$/i);
+  // Extract each section using regex
+  // Match sections with ** markers and proper boundaries
+  const overviewMatch = response.match(/\*\*Overview:?\*\*\s*([\s\S]*?)(?=\n\s*\*\*Key Decisions:?|\n\s*\*\*Action Items:?|\n\s*\*\*Blockers:?|\n\s*\*\*Resources:?|$)/i);
+  const decisionsMatch = response.match(/\*\*Key Decisions:?\*\*\s*([\s\S]*?)(?=\n\s*\*\*Action Items:?|\n\s*\*\*Blockers:?|\n\s*\*\*Resources:?|$)/i);
+  const actionItemsMatch = response.match(/\*\*Action Items:?\*\*\s*([\s\S]*?)(?=\n\s*\*\*Blockers:?|\n\s*\*\*Resources:?|$)/i);
+  const blockersMatch = response.match(/\*\*Blockers:?\*\*\s*([\s\S]*?)(?=\n\s*\*\*Resources:?|$)/i);
+  const resourcesMatch = response.match(/\*\*Resources:?\*\*\s*([\s\S]*?)$/i);
 
   if (overviewMatch) sections.overview = overviewMatch[1].trim();
   if (decisionsMatch) sections.decisions = decisionsMatch[1].trim();

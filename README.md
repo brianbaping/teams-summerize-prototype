@@ -1,6 +1,6 @@
 # Teams AI Summarizer
 
-AI-powered summarization for Microsoft Teams channels with **dual LLM support** - choose between local Ollama (free, private) or Claude API (cloud, higher quality).
+AI-powered summarization for Microsoft Teams **chats** (1:1 and group conversations) with **dual LLM support** - choose between local Ollama (free, private) or Claude API (cloud, higher quality).
 
 ## ✅ Status: Code Complete
 
@@ -17,8 +17,8 @@ All features implemented and tested! The application is ready for development us
 ✅ **Authentication** - Mock mode (for development) or Azure AD (for production)
 ✅ **Ollama Playground** - Direct chat interface with local LLM
 ✅ **Claude Playground** - Direct chat interface with Claude API
-✅ **Channel Management** - Browse and select Teams channels to monitor
-✅ **Message Viewer** - View and refresh messages from monitored channels
+✅ **Chat Management** - Browse and select Teams chats to monitor (filtered to last 7 days, max 50)
+✅ **Message Viewer** - View and refresh messages from monitored chats
 ✅ **AI Summarization** - Generate structured summaries with your chosen provider
 ✅ **Smart Caching** - SQLite database for messages and summaries
 ✅ **TypeScript** - Fully typed with strict mode
@@ -67,7 +67,7 @@ The app supports two AI providers:
 5. **Visit http://localhost:3000**
    - Click "Sign in (Mock)"
    - See Ollama Playground (purple theme)
-   - Add channels, view messages, generate summaries
+   - Add chats, view messages, generate summaries
 
 ### Setup with Claude API (Paid, Cloud)
 
@@ -134,7 +134,7 @@ teams-summerize/
 ├── app/                    # Next.js App Router
 │   ├── api/               # API routes
 │   │   ├── auth/[...nextauth]/  # Authentication (NextAuth)
-│   │   ├── channels/            # Channel management
+│   │   ├── chats/               # Chat management
 │   │   ├── claude/chat/         # Claude playground endpoint ⭐ NEW
 │   │   ├── messages/            # Message fetching
 │   │   └── summarize/           # AI summarization (dual provider)
@@ -190,11 +190,11 @@ Switch between Ollama and Claude instantly with the dropdown in the dashboard he
 - **Claude Playground** (blue) - Direct chat with Claude API
 - Both show performance metrics and token usage
 
-### 📊 Channel Selector
-Browse your Teams channels and select which ones to monitor. Supports multiple teams and channels with smart caching.
+### 📊 Chat Selector
+Browse your Teams chats (1:1 and group) and select which ones to monitor. Smart filtering shows only chats with activity in the **last 7 days** (max 50), making selection fast and relevant.
 
 ### 💬 Message Viewer
-View messages from monitored channels with author names, timestamps, and formatted content. Refresh to fetch new messages.
+View messages from monitored chats with author names, timestamps, and formatted content. Refresh to fetch new messages.
 
 ### 🤖 AI Summarization
 Generate structured summaries with your chosen provider:
@@ -263,13 +263,13 @@ npm run test:coverage
 
 **Best for**: Production use, high-quality summaries, limited local resources
 
-**Cost estimate**: ~$0.50-2/day for typical usage (5 monitored channels)
+**Cost estimate**: ~$0.50-2/day for typical usage (5 monitored chats)
 
 ## Development vs Production
 
 ### Development Mode (Current)
 - ✅ Mock authentication (no Azure AD needed)
-- ✅ Sample Teams channels and messages
+- ✅ Sample Teams chats and messages
 - ✅ Full dual LLM integration
 - ✅ All features working
 - ✅ Perfect for UI development and testing
@@ -277,7 +277,7 @@ npm run test:coverage
 ### Production Mode
 - 🔐 Real Azure AD authentication
 - 📡 Real Microsoft Graph API calls
-- 💼 Your actual Teams channels and messages
+- 💼 Your actual Teams chats and messages
 - 🚀 See [PRODUCTION.md](PRODUCTION.md) for setup
 
 ## Common Tasks
@@ -293,7 +293,7 @@ Visit the Claude Playground in the app and try a test prompt.
 ### View Database
 ```bash
 sqlite3 data/app.db
-SELECT * FROM monitored_channels;
+SELECT * FROM monitored_chats;
 SELECT COUNT(*) FROM messages;
 SELECT * FROM summaries ORDER BY generated_at DESC LIMIT 5;
 ```

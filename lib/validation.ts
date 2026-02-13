@@ -6,15 +6,16 @@
 import { z } from 'zod';
 
 /**
- * Schema for channel selection payload
+ * Schema for chat selection payload
  */
-export const channelSelectionSchema = z.object({
-  teamId: z.string().min(1, 'Team ID is required'),
-  channelId: z.string().min(1, 'Channel ID is required'),
-  channelName: z.string().optional(),
+export const chatSelectionSchema = z.object({
+  chatId: z.string().min(1, 'Chat ID is required'),
+  chatName: z.string().optional(),
+  chatType: z.string().optional(),
+  status: z.enum(['active', 'ignored']).optional(),
 });
 
-export type ChannelSelection = z.infer<typeof channelSelectionSchema>;
+export type ChatSelection = z.infer<typeof chatSelectionSchema>;
 
 /**
  * Schema for date range parameters
@@ -30,8 +31,9 @@ export type DateRange = z.infer<typeof dateRangeSchema>;
  * Schema for summary generation request
  */
 export const summaryRequestSchema = z.object({
-  channelId: z.string().min(1, 'Channel ID is required'),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+  chatId: z.string().min(1, 'Chat ID is required'),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Start date must be in YYYY-MM-DD format'),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format'),
 });
 
 export type SummaryRequest = z.infer<typeof summaryRequestSchema>;
@@ -40,8 +42,10 @@ export type SummaryRequest = z.infer<typeof summaryRequestSchema>;
  * Schema for message fetching parameters
  */
 export const messageFetchSchema = z.object({
-  channelId: z.string().min(1, 'Channel ID is required'),
+  chatId: z.string().min(1, 'Chat ID is required'),
   since: z.string().datetime().optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 export type MessageFetch = z.infer<typeof messageFetchSchema>;
